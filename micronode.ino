@@ -1,5 +1,17 @@
 /*  micronode 
 
+    v1.2
+    08 NOV 20
+
+    4730/6012 80
+
+    decreased transmission interval from 50ms to 10ms, still stable in operation
+    will monitor, may revert to 25ms if any problems crop up
+    shorter interval means relay spends less time waiting for complete message,
+    and airtime efficiency is increased
+    moved xmitspacing to int() variable, easier tweaking
+    changed beaconinterval from int() to long() to allow for greater intervals
+    
     v 1.1
     08 NOV 20
 
@@ -27,8 +39,9 @@
 #include <DHT.h>
 #include <Manchester.h>
 
-int IDb = 140;                //change this to node ID
-int beaconinterval = 10000;   //change this to desired beacon interval, in millis
+int IDb = 140;                // change this to node ID
+int xmitspacing = 10;         // change this to desired intertransmission variable interval, in millis
+long beaconinterval = 10000;  // change this to desired beacon interval, in millis
 
 int dhtpin = 0;
 int txpin = 1;
@@ -37,6 +50,7 @@ int ldrpin = A1;
 DHT dht(dhtpin, DHT11);
 
 void setup() {
+  pinMode(ldrpin, INPUT);
   dht.begin();
   man.setupTransmit(txpin, MAN_1200);
 }
@@ -47,15 +61,15 @@ void loop() {
   int ldrr = analogRead(ldrpin);
   int ldr = map(ldrr, 0, 1023, 1, 100);
   man.transmit(253);
-  delay(50);
+  delay(xmitspacing);
   man.transmit(IDb);
-  delay(50);
+  delay(xmitspacing);
   man.transmit(h);
-  delay(50);
+  delay(xmitspacing);
   man.transmit(f);
-  delay(50);
+  delay(xmitspacing);
   man.transmit(ldr);
-  delay(50);
+  delay(xmitspacing);
   man.transmit(254);
   delay(beaconinterval);
 }
