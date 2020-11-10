@@ -1,5 +1,13 @@
 /*  633TN Relay 
     
+    v 2.0
+    10 NOV 20
+
+    12924/28672 (45%) 826
+
+    Rewrote for much improved runtime stability, mostly by eliminating the use of while(!man.receiveComplete()) { delay(1); }
+    
+    
     v 1.0
     08 NOV 20
 
@@ -30,76 +38,57 @@
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
-int stationID = 220;
-int IDs = 0;
-int Hs = 0;
-int Ts = 0;
-int Ls = 0;
+int stationID = 220;  // relay's station ID.  see project documentation for full addressing scheme
+int i = 4;            // adjust for expected payload, +1 
+int rxarray[3];       // adjust for expected payload
 
 void setup() 
 {
-  pinMode(A1, OUTPUT);    // these two lines are to bring the ASK receiver VCC high. this was done for ease of assembly but could also be modified to put the ASK RX to sleep
-  digitalWrite(A1, HIGH);
+  pinMode(A1, OUTPUT);      // these two lines are to bring the ASK receiver VCC high. 
+  digitalWrite(A1, HIGH);   // this was done for ease of assembly, could put ASK RX to sleep if you wanted to
+
+  delay(50);                // give the module a bit to power on
   
-  man.setupReceive(RX_PIN, MAN_1200);
-  man.beginReceive();
+  man.setupReceive(RX_PIN, MAN_1200);   // initialize the ASK RX. we're using 1200 here, this can be changed
+  man.beginReceive();                   // start listening to ASK RX
 
   Serial.begin(115200);
+ 
+  Serial.println("633TN RELAY v2.0");
   
+  rfinit();     // here we call the subroutine to initialize the RF95 chip
+
   delay(50);
-  
-  Serial.println("633TN RELAY TEST");
-  
-  rfinit();
 }
 
 void loop()
 {
-  if (man.receiveComplete()) 
+  if (man.receiveComplete())      // oh hey, we got a message! 
   {
-    int m = man.getMessage();
-    
-    if (m == 253) {
-      Serial.print("Receiving packet ... [                 ");
-      man.beginReceive();
-      
-      while(!man.receiveComplete()) { delay(1); }
-      IDs = man.getMessage();
-      Serial.print(IDs); Serial.print(",");
-      man.beginReceive();
-      
-      while(!man.receiveComplete()) { delay(1); }
-      Hs = man.getMessage();
-      Serial.print(Hs); Serial.print(",");
-      man.beginReceive();
-      
-      while(!man.receiveComplete()) { delay(1); }
-      Ts = man.getMessage();
-      Serial.print(Ts); Serial.print(",");
-      man.beginReceive();
-      
-      while(!man.receiveComplete()) { delay(1); }
-      Ls = man.getMessage();
-      Serial.print(Ls); Serial.println("!]");
-      man.beginReceive();   
+    int m = man.getMessage();     // lets take it apart and stick it in m
 
-      while(!man.receiveComplete()) { delay(1); }
-
-      if (man.getMessage() == 254) {
-      char rpacket[64];
-      sprintf(rpacket, "633TN@255$%d;RL;%d,%d,%d,%d!", stationID, IDs, Hs, Ts, Ls);
-      Serial.print("     Frame ready ... ["); Serial.print(rpacket); Serial.println("]");
-      rf95.send((uint8_t *)rpacket, strlen(rpacket));
-      rf95.waitPacketSent();
-      Serial.println("Packet encapsulated and frame sent."); Serial.println("");
-      man.beginReceive();       
-      }
+    if (i != 4) {                 // i is our sequence flag, it's only 4 if we just started a fresh loop
+      rxarray[i++] = m;
+      Serial.print(m); Serial.print(",");
+      man.beginReceive();
     }
+
+    if (m == 253) {               // if the message is 253, that indicates a packet start. lets print that fact ...
+      Serial.println(); Serial.print("Receiving packet ... [                 ");
+      i = 0;                      // and set our sequence flag to 0
+      man.beginReceive();         // start listening again!
+    }    
+    
+    if (m == 254) {               // 254 means packet end, so we want to wrap things up and stuff it into a frame for retransmission
+      i = 4;                      // sequence flag back to 4
+      sendframe();                // subroutine for sending a frame using the RF95
+      man.beginReceive();         // start listening again!
+    }        
   }
 }
 
-void rfinit() {
-
+void rfinit()                     // this is basically straight from adafruit's RF95 FeatherWing code, i just stuck it here for neatness
+{
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
   
@@ -118,7 +107,15 @@ void rfinit() {
     Serial.println("setFrequency failed");
     while (1);
   }
-
   rf95.setTxPower(23, false);
-  
+}
+
+void sendframe()      // we have a complete packet, and we are ready to encapsulate and send the frame
+{
+  char rframe[64];   // start up our frame array
+  sprintf(rframe, "633TN@255$%d;RL;%d,%d,%d,%d!", stationID, rxarray[0], rxarray[1], rxarray[2], rxarray[3]);   // assemble it
+  Serial.println(); Serial.print("     Frame ready ... ["); Serial.print(rframe); Serial.println("]");          // print it to serial for funsies
+  rf95.send((uint8_t *)rframe, strlen(rframe));                                                                 // send it to the RF95 module
+  rf95.waitPacketSent();                                                                                        // let it do its thing
+  Serial.println("Packet encapsulated and frame sent."); Serial.println("");                                    // all done! return to loop and start listening again
 }
