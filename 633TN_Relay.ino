@@ -6,6 +6,7 @@
     13104/28672 (45) 822
 
     relay tended to hang after approx 1h18m; changed i to 5 and cleared rxarray[] after transmitting frame
+    moved LoRa pinmode declaration to setup because reasons
     
     v 2.0
     10 NOV 20
@@ -51,6 +52,8 @@ int rxarray[3];       // adjust for expected payload
 
 void setup() 
 {
+  pinMode(RFM95_RST, OUTPUT);     // not strictly needed but good practice
+  digitalWrite(RFM95_RST, HIGH);  // bring it high before we bounce it during init
   pinMode(A1, OUTPUT);      // these two lines are to bring the ASK receiver VCC high. 
   digitalWrite(A1, HIGH);   // this was done for ease of assembly, could put ASK RX to sleep if you wanted to
 
@@ -96,9 +99,6 @@ void loop()
 
 void rfinit()                     // this is basically straight from adafruit's RF95 FeatherWing code, i just stuck it here for neatness
 {
-  pinMode(RFM95_RST, OUTPUT);
-  digitalWrite(RFM95_RST, HIGH);
-  delay(10);
   digitalWrite(RFM95_RST, LOW);
   delay(10);
   digitalWrite(RFM95_RST, HIGH);
