@@ -1,5 +1,12 @@
 /*  633TN Relay 
     
+    v 2.01
+    11 NOV 20
+
+    13104/28672 (45) 822
+
+    relay tended to hang after approx 1h18m; changed i to 5 and cleared rxarray[] after transmitting frame
+    
     v 2.0
     10 NOV 20
 
@@ -39,7 +46,7 @@
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 int stationID = 220;  // relay's station ID.  see project documentation for full addressing scheme
-int i = 4;            // adjust for expected payload, +1 
+int i = 5;            // adjust for expected packet payload, +1 
 int rxarray[3];       // adjust for expected payload
 
 void setup() 
@@ -53,10 +60,9 @@ void setup()
   man.beginReceive();                   // start listening to ASK RX
 
   Serial.begin(115200);
- 
-  Serial.println("633TN RELAY v2.0");
+  Serial.println("633TN RELAY v2.01");
   
-  rfinit();     // here we call the subroutine to initialize the RF95 chip
+  rfinit();     // subroutine to initialize the RF95 chip
 
   delay(50);
 }
@@ -67,21 +73,22 @@ void loop()
   {
     int m = man.getMessage();     // lets take it apart and stick it in m
 
-    if (i != 4) {                 // i is our sequence flag, it's only 4 if we just started a fresh loop
+    if (i != 5) {                 // i is our sequence flag, it's only 5 if we just started a fresh loop
       rxarray[i++] = m;
       Serial.print(m); Serial.print(",");
       man.beginReceive();
     }
 
     if (m == 253) {               // if the message is 253, that indicates a packet start. lets print that fact ...
-      Serial.println(); Serial.print("Receiving packet ... [                 ");
+      Serial.println(); Serial.print("Receiving packet .................."); Serial.print(m); Serial.print(",");
       i = 0;                      // and set our sequence flag to 0
       man.beginReceive();         // start listening again!
     }    
     
     if (m == 254) {               // 254 means packet end, so we want to wrap things up and stuff it into a frame for retransmission
-      i = 4;                      // sequence flag back to 4
+      i = 5;                      // sequence flag back to 5
       sendframe();                // subroutine for sending a frame using the RF95
+      int rxarray[3];             // lets zero out that array, might be a ccontributing factor to instability
       man.beginReceive();         // start listening again!
     }        
   }
@@ -91,7 +98,7 @@ void rfinit()                     // this is basically straight from adafruit's 
 {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
-  
+  delay(10);
   digitalWrite(RFM95_RST, LOW);
   delay(10);
   digitalWrite(RFM95_RST, HIGH);
