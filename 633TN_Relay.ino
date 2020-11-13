@@ -1,14 +1,19 @@
 /*  633TN Relay 
     
-    v 2.1
+    v 2.11
     12 NOV 20
-    13112/28672 (45%) 822
+    13242/28672 (46%) 822
 
     relay was still hanging, seems to be missing 254 packets occasionally causing i to overrun
     added some basic error checking;
       changed (if i != 5) to (if i < 5)
       added (if i > 5)
       now clear the rxarray upon receipt of a 253
+    added delay((random(0,4) * 50) prior to sending the LoRa frame in sendframe()
+      im not positive collision detection is working in RF95
+      this will allow multiple relays to operate hopefully without collisions
+      if i determine CAD is working this can be removed
+
     
     v 2.01
     11 NOV 20
@@ -55,6 +60,7 @@ int rxarray[3];       // adjust for expected payload
 
 void setup() 
 {
+  randomSeed(analogRead(A0));     // lets grab some noise from A0 to seed the prng
   pinMode(RFM95_RST, OUTPUT);     // not strictly needed but good practice
   digitalWrite(RFM95_RST, HIGH);  // bring it high before we bounce it during init
   pinMode(A1, OUTPUT);      // these two lines are to bring the ASK receiver VCC high. 
@@ -131,6 +137,7 @@ void sendframe()      // we have a complete packet, and we are ready to encapsul
   char rframe[64];                                                                                              // start up our frame array
   sprintf(rframe, "633TN@255$%d;RL;%d,%d,%d,%d!", stationID, rxarray[0], rxarray[1], rxarray[2], rxarray[3]);   // assemble it
   Serial.println(); Serial.print("     Frame ready ... ["); Serial.print(rframe); Serial.println("]");          // print it to serial for funsies
+  delay((random(0,4) * 50));                                                                                    // this just delays the frame tx by (50*rnd(0,4)) tx length is 125ms
   rf95.send((uint8_t *)rframe, strlen(rframe));                                                                 // send it to the RF95 module
   rf95.waitPacketSent();                                                                                        // let it do its thing
   int rxarray[3];                                                                                               // lets zero out that array
