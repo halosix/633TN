@@ -1,36 +1,39 @@
 /*  633TN Relay 
     
+    v 2.1
+    12 NOV 20
+    13112/28672 (45%) 822
+
+    relay was still hanging, seems to be missing 254 packets occasionally causing i to overrun
+    added some basic error checking;
+      changed (if i != 5) to (if i < 5)
+      added (if i > 5)
+      now clear the rxarray upon receipt of a 253
+    
     v 2.01
     11 NOV 20
-
-    13104/28672 (45) 822
+    13104/28672 (45#) 822
 
     relay tended to hang after approx 1h18m; changed i to 5 and cleared rxarray[] after transmitting frame
     moved LoRa pinmode declaration to setup because reasons
     
     v 2.0
     10 NOV 20
-
+    
     12924/28672 (45%) 826
-
     Rewrote for much improved runtime stability, mostly by eliminating the use of while(!man.receiveComplete()) { delay(1); }
     
     
     v 1.0
     08 NOV 20
-
     12284/28672 (42%), 803 bytes global vars
-
+    
     This is an Adafruit 32u4 Feather with RF95 915MHz LoRa onboard
     There is a generic 434 MHz ASK receiver, vcc on A1 and data on A2
-
     This device monitors 434 MHz, and upon receipt of a valid Manchester-encoded signal, 
     assembles the received data into a frame which it then rebroadcasts on 915 MHz LoRa
-
     Serial output is enabled for debugging or logging purposes, but is not required
-
     For network details, see documentation on https://github.com/halosix/633TN
-
 */
 
 #include <Manchester.h>
@@ -76,7 +79,7 @@ void loop()
   {
     int m = man.getMessage();     // lets take it apart and stick it in m
 
-    if (i != 5) {                 // i is our sequence flag, it's only 5 if we just started a fresh loop
+    if (i < 5) {                 // i is our sequence flag, it's only 5 if we just started a fresh loop
       rxarray[i++] = m;
       Serial.print(m); Serial.print(",");
       man.beginReceive();
@@ -85,15 +88,20 @@ void loop()
     if (m == 253) {               // if the message is 253, that indicates a packet start. lets print that fact ...
       Serial.println(); Serial.print("Receiving packet .................."); Serial.print(m); Serial.print(",");
       i = 0;                      // and set our sequence flag to 0
+      int rxarray[3];             // clear the array just in case
       man.beginReceive();         // start listening again!
     }    
     
     if (m == 254) {               // 254 means packet end, so we want to wrap things up and stuff it into a frame for retransmission
-      i = 5;                      // sequence flag back to 5
       sendframe();                // subroutine for sending a frame using the RF95
-      int rxarray[3];             // lets zero out that array, might be a ccontributing factor to instability
       man.beginReceive();         // start listening again!
     }        
+
+    if (i > 5) {                  // this should only happen if the ASK RX misses a 254 and keeps looping
+      sendframe();                // so if this happens, send whatever is in the buffer and move on
+      man.beginReceive();         
+    }
+    
   }
 }
 
@@ -119,10 +127,12 @@ void rfinit()                     // this is basically straight from adafruit's 
 
 void sendframe()      // we have a complete packet, and we are ready to encapsulate and send the frame
 {
-  char rframe[64];   // start up our frame array
+  i = 5;                                                                                                        // sequence flag back to 5
+  char rframe[64];                                                                                              // start up our frame array
   sprintf(rframe, "633TN@255$%d;RL;%d,%d,%d,%d!", stationID, rxarray[0], rxarray[1], rxarray[2], rxarray[3]);   // assemble it
   Serial.println(); Serial.print("     Frame ready ... ["); Serial.print(rframe); Serial.println("]");          // print it to serial for funsies
   rf95.send((uint8_t *)rframe, strlen(rframe));                                                                 // send it to the RF95 module
   rf95.waitPacketSent();                                                                                        // let it do its thing
+  int rxarray[3];                                                                                               // lets zero out that array
   Serial.println("Packet encapsulated and frame sent."); Serial.println("");                                    // all done! return to loop and start listening again
 }
