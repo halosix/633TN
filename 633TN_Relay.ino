@@ -1,6 +1,14 @@
 /*  633TN Relay 
     
-    v 2.11
+    v 2.2
+    30 NOV 20
+    13238/28672 (46%) 822
+
+    relay continued to be unstable, lasting max 2 days before requiring reset.
+    changed if (i > 5) to if (i >= 5)
+    reset i to 0 at sendframe(), was i=5
+    
+    v 2.1
     12 NOV 20
     13242/28672 (46%) 822
 
@@ -103,7 +111,7 @@ void loop()
       man.beginReceive();         // start listening again!
     }        
 
-    if (i > 5) {                  // this should only happen if the ASK RX misses a 254 and keeps looping
+    if (i >= 5) {                 // this should only happen if the ASK RX misses a 254 and keeps looping
       sendframe();                // so if this happens, send whatever is in the buffer and move on
       man.beginReceive();         
     }
@@ -133,7 +141,7 @@ void rfinit()                     // this is basically straight from adafruit's 
 
 void sendframe()      // we have a complete packet, and we are ready to encapsulate and send the frame
 {
-  i = 5;                                                                                                        // sequence flag back to 5
+  i = 0;                                                                                                        // sequence flag back to 5
   char rframe[64];                                                                                              // start up our frame array
   sprintf(rframe, "633TN@255$%d;RL;%d,%d,%d,%d!", stationID, rxarray[0], rxarray[1], rxarray[2], rxarray[3]);   // assemble it
   Serial.println(); Serial.print("     Frame ready ... ["); Serial.print(rframe); Serial.println("]");          // print it to serial for funsies
