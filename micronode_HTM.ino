@@ -1,8 +1,15 @@
 /*  micronode 
 
+    v 2.1HTM
+    02 DEC 20
+
+    2908/6012 (48%) 64
+
+    ported this micronode version to TinyDHT as well
+    
     v 2.0HTM
     30 NOV 20
-    
+
     this version is specifically for ATtiny85 with DHT11 and a single PIR sensor
     triggers when motion detected, sends a packet with humi + temp + motion code
     triggers again after (hardware-set) reset with humi + temp + end code
@@ -42,11 +49,11 @@
       use 10K for general, 1K for bright
 
 */
-#include <DHT.h>
+#include <TinyDHT.h>
 #include <Manchester.h>
 
 int IDb = 170;                // change this to node ID
-int xmitspacing = 25;         // change this to desired intertransmission variable interval, in millis
+int xmitspacing = 50;         // change this to desired intertransmission variable interval, in millis
 long beaconinterval = 10000;  // change this to desired beacon interval, in millis
 
 int dhtpin = 0;
