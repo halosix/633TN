@@ -1,4 +1,12 @@
 /*  micronode 
+
+    v 2.1
+    02 DEC 20
+    3376/6012 (56%) 69
+
+    ran into library issues with DHT, ported to TinyDHT, much smaller code footprint now
+    micronode itself has run outdoors with no issues for >3 weeks straight
+    
     
     v1.21
     09 NOV 20
@@ -37,12 +45,12 @@
       use 10K for general, 1K for bright
 */
 
-#include <DHT.h>
+#include <TinyDHT.h>
 #include <Manchester.h>
 
 int IDb = 140;                // change this to node ID
-int xmitspacing = 25;         // change this to desired intertransmission variable interval, in millis
-long beaconinterval = 60000;  // change this to desired beacon interval, in millis
+int xmitspacing = 50;         // change this to desired intertransmission interval, in millis
+long beaconinterval = 60000;  // change this to desired beacon interval, in millis   
 
 int dhtpin = 0;
 int txpin = 1;
